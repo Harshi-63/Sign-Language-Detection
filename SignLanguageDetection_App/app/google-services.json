@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "492580051442",
+    "project_id": "sign-language-detection-app",
+    "storage_bucket": "sign-language-detection-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:492580051442:android:73b0c6866af986671ff36b",
+        "android_client_info": {
+          "package_name": "com.example.sign_language_detection_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMEpJx2cgqnysjGVmCd37paPnRFqUVGEE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:492580051442:android:caf525d0a29083851ff36b",
+        "android_client_info": {
+          "package_name": "com.example.signlanguagedetection_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMEpJx2cgqnysjGVmCd37paPnRFqUVGEE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:492580051442:android:cc1142779effe1261ff36b",
+        "android_client_info": {
+          "package_name": "com.example.signlanguagedetectionapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAMEpJx2cgqnysjGVmCd37paPnRFqUVGEE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
