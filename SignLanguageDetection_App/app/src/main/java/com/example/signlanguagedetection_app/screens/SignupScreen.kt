@@ -17,7 +17,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.safe_heaven.ui.theme.BackgroundBlue
 import com.example.signlanguagedetection_app.R
 import com.example.signlanguagedetection_app.components.ButtonComponent
 import com.example.signlanguagedetection_app.components.CheckboxComponent
@@ -31,6 +30,7 @@ import com.example.signlanguagedetection_app.data.SignUpViewModel
 import com.example.signlanguagedetection_app.data.SignupUIEvents
 import com.example.signlanguagedetection_app.navigation.Router
 import com.example.signlanguagedetection_app.navigation.Screen
+import com.example.signlanguagedetection_app.ui.theme.BackgroundBlue
 
 
 @Composable
