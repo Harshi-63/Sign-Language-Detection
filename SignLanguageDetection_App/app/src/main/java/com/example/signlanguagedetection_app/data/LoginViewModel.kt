@@ -3,10 +3,9 @@ package com.example.signlanguagedetection_app.data
 import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
-import com.example.safe_heaven.navigation.Router
-import com.example.safe_heaven.navigation.Screen
-
 import com.example.signlanguagedetection_app.data.rules.Validator
+import com.example.signlanguagedetection_app.navigation.Router
+import com.example.signlanguagedetection_app.navigation.Screen
 import com.google.firebase.auth.FirebaseAuth
 
 class LoginViewModel : ViewModel() {
@@ -42,41 +41,26 @@ class LoginViewModel : ViewModel() {
         loginInProgress.value = true
         val email = loginUIState.value.email
         val password = loginUIState.value.password
-
-        FirebaseAuth.getInstance()
+        FirebaseAuth
+            .getInstance()
             .signInWithEmailAndPassword(email, password)
-            .addOnCompleteListener { authTask ->
+            .addOnCompleteListener {
                 Log.d(tag, "Inside_login_success")
-                Log.d(tag, "${authTask.isSuccessful}")
+                Log.d(tag, "${it.isSuccessful}")
 
-                if (authTask.isSuccessful) {
-                    // ✅ Fetching ID Token after successful login
-                    val user = FirebaseAuth.getInstance().currentUser
-                    user?.getIdToken(true) // 'true' forces token refresh
-                        ?.addOnCompleteListener { tokenTask ->
-                            if (tokenTask.isSuccessful) {
-                                val idToken = tokenTask.result?.token
-                                Log.d(tag, "ID Token: $idToken")
-
-                                // ➔ You can now send this ID Token to your backend if needed
-                            } else {
-                                Log.e(tag, "Failed to get ID Token", tokenTask.exception)
-                            }
-
-                            loginInProgress.value = false
-                            Router.navigateTo(Screen.HomeScreen)
-                        }
-                } else {
+                if (it.isSuccessful) {
                     loginInProgress.value = false
+                    Router.navigateTo(Screen.HomeScreen)
                 }
+
             }
-            .addOnFailureListener { exception ->
+            .addOnFailureListener {
                 Log.d(tag, "Inside_login_failure")
-                Log.d(tag, exception.localizedMessage ?: "Unknown Error")
+                Log.d(tag, it.localizedMessage)
+
                 loginInProgress.value = false
             }
     }
-
 
     private fun validateLoginDataWithRules() {
         val emailResult = Validator.validateEmail(

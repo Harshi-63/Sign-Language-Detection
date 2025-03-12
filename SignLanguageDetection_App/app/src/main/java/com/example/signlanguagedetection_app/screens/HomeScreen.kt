@@ -8,8 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.example.safe_heaven.ui.theme.BackgroundBlue
 import com.example.signlanguagedetection_app.components.HeadingTextComponent
+import com.example.signlanguagedetection_app.ui.theme.BackgroundBlue
 
 @Composable
 fun HomeScreen(){
