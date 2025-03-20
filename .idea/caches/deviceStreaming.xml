@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="DeviceStreaming">
+    <option name="defaultDeviceApplied" value="true" />
     <option name="deviceSelectionList">
       <list>
         <PersistentDeviceSelectionData>
@@ -321,6 +322,18 @@
         <PersistentDeviceSelectionData>
           <option name="api" value="34" />
           <option name="brand" value="samsung" />
+          <option name="codename" value="gta9pwifi" />
+          <option name="id" value="gta9pwifi" />
+          <option name="labId" value="google" />
+          <option name="manufacturer" value="Samsung" />
+          <option name="name" value="SM-X210" />
+          <option name="screenDensity" value="240" />
+          <option name="screenX" value="1200" />
+          <option name="screenY" value="1920" />
+        </PersistentDeviceSelectionData>
+        <PersistentDeviceSelectionData>
+          <option name="api" value="34" />
+          <option name="brand" value="samsung" />
           <option name="codename" value="gts7xllite" />
           <option name="id" value="gts7xllite" />
           <option name="labId" value="google" />
@@ -591,5 +604,6 @@
         </PersistentDeviceSelectionData>
       </list>
     </option>
+    <option name="selectedCloudProject" value="signlanguagedetectio-f5402bda" />
   </component>
 </project>

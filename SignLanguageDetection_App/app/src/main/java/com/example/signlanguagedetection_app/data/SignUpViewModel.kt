@@ -126,5 +126,22 @@ class SignUpViewModel : ViewModel() {
 
 
             }
+
     }
+    fun isUserNew(): Boolean {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        return if (currentUser != null) {
+            // Compare creationTime and lastSignInTime after parsing them as dates
+            val metadata = currentUser.metadata
+            val creationTime = metadata?.creationTimestamp
+            val lastSignInTime = metadata?.lastSignInTimestamp
+
+            // Check if creation time equals last sign-in time
+            creationTime == lastSignInTime
+        } else {
+            // If no user is signed in, assume it's a new user
+            true
+        }
+    }
+
 }
