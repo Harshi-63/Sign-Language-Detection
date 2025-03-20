@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +25,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.signlanguagedetection_app.R
+import com.example.signlanguagedetection_app.navigation.Router
+import com.example.signlanguagedetection_app.navigation.Screen
 import com.example.signlanguagedetection_app.ui.theme.BackgroundBlue
 
 @Composable
@@ -34,7 +37,7 @@ fun HomeScreen() {
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Heading Section
@@ -82,18 +85,18 @@ fun HomeScreen() {
             ) {
                 InstructionCard(
                     imageResId = R.drawable.sign3, // Replace with your image resource ID
-                    description = "Everything is fine"
+                    description = "Point Of Objection"
                 )
                 InstructionCard(
                     imageResId = R.drawable.sign4, // Replace with your image resource ID
-                    description = "Point of Objection"
+                    description = "Take Care"
                 )
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
             // Translate Button Section (Commented Out)
-            /*
+
             Button(
                 onClick = { Router.navigateTo(Screen.CameraScreen) },
                 modifier = Modifier.fillMaxWidth(),
@@ -101,7 +104,7 @@ fun HomeScreen() {
             ) {
                 Text(text = "Translate", fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
-             */
+
         }
     }
 }
