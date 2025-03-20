@@ -9,6 +9,7 @@ sealed class Screen {
     object TandCScreen : Screen()
     object LoginScreen : Screen()
     object HomeScreen : Screen()
+    object CameraScreen : Screen()
 }
 
 object Router {

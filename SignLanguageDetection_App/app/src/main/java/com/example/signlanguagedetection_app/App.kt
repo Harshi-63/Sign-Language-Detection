@@ -8,6 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.example.signlanguagedetection_app.navigation.Router
 import com.example.signlanguagedetection_app.navigation.Screen
+import com.example.signlanguagedetection_app.screens.CameraScreen
 import com.example.signlanguagedetection_app.screens.HomeScreen
 import com.example.signlanguagedetection_app.screens.LandingPage
 import com.example.signlanguagedetection_app.screens.LoginScreen
@@ -37,6 +38,9 @@ fun SignLanguageDetection() {
                 }
                 is Screen.HomeScreen -> {
                     HomeScreen()
+                }
+                is Screen.CameraScreen -> {
+                    CameraScreen()
                 }
             }
         }
