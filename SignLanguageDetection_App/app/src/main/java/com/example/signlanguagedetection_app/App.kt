@@ -8,31 +8,39 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.example.signlanguagedetection_app.navigation.Router
 import com.example.signlanguagedetection_app.navigation.Screen
+import com.example.signlanguagedetection_app.screens.CameraScreen
 import com.example.signlanguagedetection_app.screens.HomeScreen
+import com.example.signlanguagedetection_app.screens.LandingPage
 import com.example.signlanguagedetection_app.screens.LoginScreen
 import com.example.signlanguagedetection_app.screens.SignupScreen
 import com.example.signlanguagedetection_app.screens.TAndCScreen
 
 
 @Composable
-fun SignLanguageDetection(){
-    Surface (
+fun SignLanguageDetection() {
+    Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color.White
-    ){
-        Crossfade(targetState = Router.currentScreen) { currentState->
-            when(currentState.value){
-                is Screen.SignUpScreen ->{
+        color = Color.White // Set your app's background color
+    ) {
+        Crossfade(targetState = Router.currentScreen) { currentState ->
+            when (currentState.value) {
+                is Screen.LandingPage -> {
+                    LandingPage()
+                }
+                is Screen.SignUpScreen -> {
                     SignupScreen()
                 }
-                is Screen.TandCScreen ->{
+                is Screen.TandCScreen -> {
                     TAndCScreen()
                 }
-                is Screen.LoginScreen ->{
+                is Screen.LoginScreen -> {
                     LoginScreen()
                 }
-                is Screen.HomeScreen ->{
+                is Screen.HomeScreen -> {
                     HomeScreen()
+                }
+                is Screen.CameraScreen -> {
+                    CameraScreen()
                 }
             }
         }
