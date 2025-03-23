@@ -40,6 +40,7 @@ android {
 
     buildFeatures {
         compose = true
+        mlModelBinding = true
     }
 }
 
@@ -58,16 +59,25 @@ dependencies {
 
     // Firebase Authentication (if needed in your app)
     implementation(libs.firebase.auth)
+    implementation(libs.tensorflow.tensorflow.lite.support)
+    implementation(libs.tensorflow.lite.metadata)
+    implementation(libs.tensorflow.lite.gpu)
 
     // CameraX Dependencies for Camera Functionality
-    val camerax_version = "1.5.0-alpha06"
-    implementation("androidx.camera:camera-core:$camerax_version")
-    implementation("androidx.camera:camera-camera2:$camerax_version")
-    implementation("androidx.camera:camera-lifecycle:$camerax_version")
-    implementation("androidx.camera:camera-view:$camerax_version")
+    implementation("androidx.camera:camera-core:1.5.0-alpha06")
+    implementation("androidx.camera:camera-camera2:1.5.0-alpha06")
+    implementation("androidx.camera:camera-lifecycle:1.5.0-alpha06")
+    implementation("androidx.camera:camera-view:1.5.0-alpha06")
 
     // ML Kit Text Recognition for Real-Time Translation
-    implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation(libs.text.recognition)
+    implementation(libs.tensorflow.lite.task.text)
+    implementation(libs.tensorflow.tensorflow.lite.support)
+    implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.2")
+
+    //For permissions
+    implementation("com.google.accompanist:accompanist-permissions:0.30.1")
+
 
 
     // Testing Libraries
@@ -86,4 +96,6 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.lifecycle.viewmodel.compose) // ViewModel integration with Compose
     implementation(libs.androidx.navigation.compose) // Navigation for Compose
+
+
 }
