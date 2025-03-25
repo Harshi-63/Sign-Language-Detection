@@ -78,6 +78,8 @@ dependencies {
     //For permissions
     implementation("com.google.accompanist:accompanist-permissions:0.30.1")
 
+    // TensorFlow Lite Core Library
+    implementation ("org.tensorflow:tensorflow-lite:2.13.0")
 
 
     // Testing Libraries

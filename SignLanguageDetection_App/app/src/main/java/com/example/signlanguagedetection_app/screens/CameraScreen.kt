@@ -1,5 +1,6 @@
 package com.example.signlanguagedetection_app.screens
 
+import android.Manifest
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -10,6 +11,7 @@ import android.graphics.YuvImage
 import android.util.Log
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.Button
@@ -21,29 +23,40 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.signlanguagedetection_app.navigation.Router
+import com.example.signlanguagedetection_app.navigation.Screen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import org.tensorflow.lite.Interpreter
 import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
-import com.example.signlanguagedetection_app.navigation.Router
-import com.example.signlanguagedetection_app.navigation.Screen
-import com.google.accompanist.permissions.isGranted
+
+// TensorFlow Lite Interpreter instance (global)
+private var interpreter: Interpreter? = null
+
+// Initialize TensorFlow Lite Interpreter with the model file from the assets folder.
+private fun initializeInterpreter(context: Context) {
+    try {
+        interpreter = Interpreter(loadModelFile(context, "sign_language_model.tflite"))
+    } catch (e: Exception) {
+        Log.e("CameraScreen", "Error initializing TFLite interpreter: ${e.message}")
+    }
+}
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun CameraScreen() {
     val context = LocalContext.current
-    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val lifecycleOwner = LocalLifecycleOwner.current
 
     var translation by remember { mutableStateOf("Translating...") }
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
@@ -51,6 +64,19 @@ fun CameraScreen() {
     val cameraPermissionState = rememberPermissionState(
         permission = android.Manifest.permission.CAMERA
     )
+
+    // Initialize the interpreter
+    LaunchedEffect(context) {
+        initializeInterpreter(context)
+    }
+
+    // Properly dispose of the interpreter to prevent memory leaks
+    DisposableEffect(lifecycleOwner) {
+        onDispose {
+            interpreter?.close()
+            interpreter = null
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize()) {
         if (cameraPermissionState.status.isGranted) {
@@ -69,10 +95,11 @@ fun CameraScreen() {
                             lifecycleOwner,
                             cameraProvider,
                             previewView,
-                            lensFacing
-                        ) { translatedText ->
-                            translation = translatedText
-                        }
+                            lensFacing,
+                            onClassification = { translatedText ->
+                                translation = translatedText
+                            }
+                        )
                     }, ContextCompat.getMainExecutor(context))
                 }
 
@@ -132,6 +159,89 @@ fun CameraScreen() {
     }
 }
 
+
+@Composable
+private fun CameraView(
+    context: Context,
+    lifecycleOwner: LifecycleOwner,
+    lensFacing: Int,
+    onTranslationUpdate: (String) -> Unit,
+    onLensFacingChange: (Int) -> Unit
+) {
+    var currentTranslation by remember { mutableStateOf("") }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        val previewView = remember { PreviewView(context) }
+        AndroidView(
+            factory = { previewView },
+            modifier = Modifier.fillMaxSize()
+        ) {
+            val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
+            cameraProviderFuture.addListener({
+                val cameraProvider = cameraProviderFuture.get()
+                setupCamera(
+                    context,
+                    lifecycleOwner,
+                    cameraProvider,
+                    previewView,
+                    lensFacing,
+                    onClassification = { newTranslation ->
+                        currentTranslation = newTranslation // Update translation state.
+                        onTranslationUpdate(newTranslation)
+                    }
+                )
+            }, ContextCompat.getMainExecutor(context))
+        }
+
+        CameraControls(
+            onBackClick = { Router.navigateTo(Screen.HomeScreen) },
+            onSwitchCamera = {
+                val newLensFacing =
+                    if (lensFacing == CameraSelector.LENS_FACING_BACK) CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
+                onLensFacingChange(newLensFacing)
+            },
+            translation = currentTranslation // Pass updated translation state.
+        )
+    }
+}
+
+@Composable
+private fun CameraControls(
+    onBackClick: () -> Unit,
+    onSwitchCamera: () -> Unit,
+    translation: String
+) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Button(
+            onClick = onBackClick,
+            modifier = Modifier.padding(WindowInsets.safeDrawing.asPaddingValues())
+                .align(Alignment.TopStart)
+        ) {
+            Text("Back", fontSize = 16.sp)
+        }
+
+        Box(
+            modifier = Modifier.fillMaxWidth().height(150.dp).align(Alignment.BottomCenter)
+                .background(Color.White.copy(alpha = 0.7f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = translation, // Display the updated translation text.
+                fontSize = 24.sp,
+                color = Color.Black,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+
+        FloatingActionButton(
+            onClick = onSwitchCamera,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp)
+        ) {
+            Text("Switch")
+        }
+    }
+}
+
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 private fun PermissionRequestUI(permissionState: com.google.accompanist.permissions.PermissionState) {
@@ -152,35 +262,37 @@ private fun setupCamera(
     context: Context,
     lifecycleOwner: LifecycleOwner,
     cameraProvider: ProcessCameraProvider,
-    previewView: androidx.camera.view.PreviewView,
+    previewView: PreviewView,
     lensFacing: Int,
     onClassification: (String) -> Unit
 ) {
     try {
         cameraProvider.unbindAll()
 
-        val preview = Preview.Builder()
-            .build()
-            .also { it.surfaceProvider = previewView.surfaceProvider }
+        val previewUseCase =
+            Preview.Builder()
+                .build()
+                .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
-        val imageAnalyzer = ImageAnalysis.Builder()
-            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-            .build()
-            .also { analyzer ->
-                analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
-                    processFrame(imageProxy, context, onClassification)
+        val imageAnalyzerUseCase =
+            ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .build()
+                .also { analyzer ->
+                    analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
+                        processFrame(imageProxy, context, onClassification)
+                    }
                 }
-            }
 
-        val cameraSelector = CameraSelector.Builder()
-            .requireLensFacing(lensFacing)
-            .build()
+        val cameraSelector =
+            CameraSelector.Builder().requireLensFacing(lensFacing).build()
 
         cameraProvider.bindToLifecycle(
             lifecycleOwner,
             cameraSelector,
-            preview,
-            imageAnalyzer
+            previewUseCase,
+            imageAnalyzerUseCase
         )
     } catch (e: Exception) {
         Log.e("CameraScreen", "Error setting up camera: ${e.localizedMessage}")
@@ -193,18 +305,21 @@ private fun processFrame(
     onClassification: (String) -> Unit
 ) {
     try {
-        val bitmap = imageProxy.toBitmap().rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
+        val bitmap = imageProxy.toBitmap()?.rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
+        if (bitmap == null) return
 
-        bitmap?.let {
-            val interpreter = Interpreter(loadModelFile(context, "sign_language_model.tflite"))
-            val inputBuffer = preprocessImage(bitmap)
-            val outputBuffer = Array(1) { FloatArray(NUM_CLASSES) } // Adjust NUM_CLASSES as per your model
+        val inputBuffer = preprocessImage(bitmap)
+        val outputBuffer = Array(1) { FloatArray(NUM_CLASSES) }
 
-            interpreter.run(inputBuffer, outputBuffer)
+        interpreter?.run(inputBuffer, outputBuffer)
 
-            val predictedLabel = getLabel(outputBuffer[0])
-            onClassification(predictedLabel)
-        }
+        // Log raw output probabilities for debugging
+        Log.d("ProcessFrame", "Raw model output: ${outputBuffer[0].contentToString()}")
+
+        val predictedLabel = getLabel(outputBuffer[0])
+        Log.d("ProcessFrame", "Predicted label: $predictedLabel")
+        onClassification(predictedLabel)
+
     } catch (e: Exception) {
         Log.e("CameraScreen", "Error processing frame: ${e.localizedMessage}")
     } finally {
@@ -226,39 +341,41 @@ private fun ImageProxy.toBitmap(): Bitmap? {
     val uSize = uBuffer.remaining()
     val vSize = vBuffer.remaining()
 
-    val nv21 = ByteArray(ySize + uSize + vSize)
+    val nv21BytesArray =
+        ByteArray(ySize + uSize + vSize).apply {
+            yBuffer.get(this, 0, ySize)
+            vBuffer.get(this, ySize, vSize)
+            uBuffer.get(this, ySize + vSize, uSize)
+        }
 
-    yBuffer.get(nv21, 0, ySize)
-    vBuffer.get(nv21, ySize, vSize)
-    uBuffer.get(nv21, ySize + vSize, uSize)
+    return YuvImage(nv21BytesArray, ImageFormat.NV21, width, height, null).run {
+        val outStreamDataHolderStreamBytesArrayDataOutputStream =
+            ByteArrayOutputStream().apply { compressToJpeg(Rect(0, 0, width, height), 100, this) }
 
-    val yuvImage = YuvImage(nv21, ImageFormat.NV21, width, height, null)
-    val out = ByteArrayOutputStream()
-    yuvImage.compressToJpeg(Rect(0, 0, width, height), 100, out)
-    val imageBytes = out.toByteArray()
-    return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+        BitmapFactory.decodeByteArray(outStreamDataHolderStreamBytesArrayDataOutputStream.toByteArray(), 0, outStreamDataHolderStreamBytesArrayDataOutputStream.size())
+    }
 }
 
 private fun preprocessImage(bitmap: Bitmap): ByteBuffer {
-    val inputSize = 224 // Adjust this to match your model's input size
+    val inputSize = 224 // Adjust this to match your model's input size.
     val scaledBitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
-    val byteBuffer = ByteBuffer.allocateDirect(4 * inputSize * inputSize * 3)
-    byteBuffer.order(ByteOrder.nativeOrder())
+    val byteBuffer = ByteBuffer.allocateDirect(4 * inputSize * inputSize * 3).apply { order(ByteOrder.nativeOrder()) }
 
     val intValues = IntArray(inputSize * inputSize)
     scaledBitmap.getPixels(intValues, 0, scaledBitmap.width, 0, 0, scaledBitmap.width, scaledBitmap.height)
 
-    var pixel = 0
+    var pixelIndex = 0
     for (i in 0 until inputSize) {
         for (j in 0 until inputSize) {
-            val value = intValues[pixel++]
-            byteBuffer.putFloat(((value shr 16 and 0xFF) - 127.5f) / 127.5f)
-            byteBuffer.putFloat(((value shr 8 and 0xFF) - 127.5f) / 127.5f)
-            byteBuffer.putFloat(((value and 0xFF) - 127.5f) / 127.5f)
+            val value = intValues[pixelIndex++]
+            byteBuffer.putFloat(((value shr 16 and 0xFF) - 127.5f) / 127.5f) // Normalize Red channel
+            byteBuffer.putFloat(((value shr 8 and 0xFF) - 127.5f) / 127.5f)  // Normalize Green channel
+            byteBuffer.putFloat(((value and 0xFF) - 127.5f) / 127.5f)        // Normalize Blue channel
         }
     }
     return byteBuffer
 }
+
 
 private fun loadModelFile(context: Context, modelName: String): ByteBuffer {
     val fileDescriptor = context.assets.openFd(modelName)
@@ -270,10 +387,13 @@ private fun loadModelFile(context: Context, modelName: String): ByteBuffer {
 }
 
 private fun getLabel(output: FloatArray): String {
-    val labels = listOf("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z")
+    val labels = listOf(
+        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+        "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
+        "U", "V", "W", "X", "Y", "Z"
+    )
     val maxIndex = output.indices.maxByOrNull { output[it] } ?: 0
     return labels[maxIndex]
 }
 
-// Constants
 private const val NUM_CLASSES = 26 // Adjust this based on your model's output
