@@ -1,0 +1,5 @@
+# Ignore Python's site-packages directory
+/myenv/Lib/site-packages/
+
+# Ignore the SignLanguageDetection_App directory
+/SignLanguageDetection_App/

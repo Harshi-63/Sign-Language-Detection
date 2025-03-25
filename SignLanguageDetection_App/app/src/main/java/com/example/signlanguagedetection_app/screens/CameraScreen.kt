@@ -9,6 +9,7 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.util.Log
+import android.util.Size
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
@@ -39,6 +40,7 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import java.util.concurrent.Executors
 
 // TensorFlow Lite Interpreter instance (global)
 private var interpreter: Interpreter? = null
@@ -278,12 +280,15 @@ private fun setupCamera(
             ImageAnalysis.Builder()
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
+                .setTargetResolution(Size(640, 480)) // ✅ Lower resolution for better performance
                 .build()
-                .also { analyzer ->
-                    analyzer.setAnalyzer(ContextCompat.getMainExecutor(context)) { imageProxy ->
-                        processFrame(imageProxy, context, onClassification)
-                    }
-                }
+        imageAnalyzerUseCase.setAnalyzer(cameraExecutor) { imageProxy ->
+            if (isMotionDetected(imageProxy)) {  // Only process if motion is detected
+                processFrame(imageProxy, context, onClassification)
+            }
+        }
+
+
 
         val cameraSelector =
             CameraSelector.Builder().requireLensFacing(lensFacing).build()
@@ -298,7 +303,7 @@ private fun setupCamera(
         Log.e("CameraScreen", "Error setting up camera: ${e.localizedMessage}")
     }
 }
-
+private var previousBitmap: Bitmap? =null
 private fun processFrame(
     imageProxy: ImageProxy,
     context: Context,
@@ -307,6 +312,17 @@ private fun processFrame(
     try {
         val bitmap = imageProxy.toBitmap()?.rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
         if (bitmap == null) return
+
+        // Compare current frame with previous frame
+        previousBitmap?.let { prev ->
+            val motionScore = detectMotion(prev, bitmap)
+            Log.d("MotionDetection", "Motion score: $motionScore")
+
+            if (motionScore > 1000) { // Adjust threshold
+                Log.d("MotionDetection", "Motion detected!")
+                onClassification("Motion Detected!")
+            }
+        }
 
         val inputBuffer = preprocessImage(bitmap)
         val outputBuffer = Array(1) { FloatArray(NUM_CLASSES) }
@@ -325,6 +341,18 @@ private fun processFrame(
     } finally {
         imageProxy.close()
     }
+}
+// Motion detection using pixel difference
+private fun detectMotion(prev: Bitmap, curr: Bitmap): Int {
+    var diffCount = 0
+    for (x in 0 until curr.width step 10) {
+        for (y in 0 until curr.height step 10) {
+            if (curr.getPixel(x, y) != prev.getPixel(x, y)) {
+                diffCount++
+            }
+        }
+    }
+    return diffCount
 }
 
 private fun Bitmap.rotate(degrees: Float): Bitmap {
