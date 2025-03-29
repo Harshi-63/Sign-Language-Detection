@@ -9,17 +9,37 @@ import android.graphics.Matrix
 import android.graphics.Rect
 import android.graphics.YuvImage
 import android.util.Log
-import android.util.Size
-import androidx.camera.core.*
+import androidx.camera.core.AspectRatio
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.ImageProxy
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -40,19 +60,26 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.nio.channels.FileChannel
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+
 
 // TensorFlow Lite Interpreter instance (global)
 private var interpreter: Interpreter? = null
 
-// Initialize TensorFlow Lite Interpreter with the model file from the assets folder.
 private fun initializeInterpreter(context: Context) {
+    val options = Interpreter.Options().apply {
+        setNumThreads(4) // Use multiple threads for inference
+        addDelegate(org.tensorflow.lite.nnapi.NnApiDelegate()) // Use NNAPI if available
+    }
+
     try {
-        interpreter = Interpreter(loadModelFile(context, "sign_language_model.tflite"))
+        interpreter = Interpreter(loadModelFile(context, "sign_language_model.tflite"), options)
     } catch (e: Exception) {
         Log.e("CameraScreen", "Error initializing TFLite interpreter: ${e.message}")
     }
 }
+
 
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
@@ -92,7 +119,7 @@ fun CameraScreen() {
                     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
                     cameraProviderFuture.addListener({
                         val cameraProvider = cameraProviderFuture.get()
-                        setupCamera(
+                        setupCameraWithMotionDetection(
                             context,
                             lifecycleOwner,
                             cameraProvider,
@@ -138,7 +165,7 @@ fun CameraScreen() {
                         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK)
                             CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                         val cameraProvider = ProcessCameraProvider.getInstance(context).get()
-                        setupCamera(
+                        setupCameraWithMotionDetection(
                             context,
                             lifecycleOwner,
                             cameraProvider,
@@ -181,7 +208,7 @@ private fun CameraView(
             val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
-                setupCamera(
+                setupCameraWithMotionDetection(
                     context,
                     lifecycleOwner,
                     cameraProvider,
@@ -260,7 +287,11 @@ private fun PermissionRequestUI(permissionState: com.google.accompanist.permissi
     }
 }
 
-private fun setupCamera(
+// Add this at the top level of your file (outside composables)
+private val cameraExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+
+
+private fun setupCameraWithMotionDetection(
     context: Context,
     lifecycleOwner: LifecycleOwner,
     cameraProvider: ProcessCameraProvider,
@@ -276,19 +307,23 @@ private fun setupCamera(
                 .build()
                 .also { it.setSurfaceProvider(previewView.surfaceProvider) }
 
-        val imageAnalyzerUseCase =
-            ImageAnalysis.Builder()
-                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
-                .setTargetResolution(Size(640, 480)) // ✅ Lower resolution for better performance
-                .build()
+        val imageAnalyzerUseCase = ImageAnalysis.Builder()
+            .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+            .setTargetResolution(android.util.Size(640, 480)) // Lower resolution for faster processing
+            .build()
+
+
         imageAnalyzerUseCase.setAnalyzer(cameraExecutor) { imageProxy ->
-            if (isMotionDetected(imageProxy)) {  // Only process if motion is detected
-                processFrame(imageProxy, context, onClassification)
+            try {
+                if (isMotionDetected(imageProxy)) { // Only process if motion is detected
+                    processFrame(imageProxy, context, onClassification)
+                }
+            } catch (e: Exception) {
+                Log.e("ImageAnalyzer", "Error analyzing image: ${e.localizedMessage}")
+            } finally {
+                imageProxy.close() // Ensure resources are released after processing
             }
         }
-
-
 
         val cameraSelector =
             CameraSelector.Builder().requireLensFacing(lensFacing).build()
@@ -303,57 +338,83 @@ private fun setupCamera(
         Log.e("CameraScreen", "Error setting up camera: ${e.localizedMessage}")
     }
 }
-private var previousBitmap: Bitmap? =null
+
+private var previousBitmap: Bitmap? = null
+private const val MOTION_THRESHOLD = 300
+
+// Main motion detection function
+private fun isMotionDetected(imageProxy: ImageProxy): Boolean {
+    // Convert ImageProxy to Bitmap with rotation handling
+    val currentBitmap = imageProxy.toBitmap()?.apply {
+        rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
+    } ?: run {
+        Log.e("MotionDetection", "Bitmap conversion failed")
+        imageProxy.close()
+        return false
+    }
+
+    return previousBitmap?.let { prevBitmap ->
+        val diffCount = detectMotion(prevBitmap, currentBitmap)
+        previousBitmap = currentBitmap
+        diffCount > MOTION_THRESHOLD
+    } ?: run {
+        previousBitmap = currentBitmap
+        true // First frame always triggers motion detection
+    }
+}
+
+private const val FRAME_INTERVAL = 2 // Process every 2nd frame
+private var frameCounter = 0
+
 private fun processFrame(
     imageProxy: ImageProxy,
     context: Context,
     onClassification: (String) -> Unit
 ) {
     try {
-        val bitmap = imageProxy.toBitmap()?.rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
-        if (bitmap == null) return
+        frameCounter++
 
-        // Compare current frame with previous frame
-        previousBitmap?.let { prev ->
-            val motionScore = detectMotion(prev, bitmap)
-            Log.d("MotionDetection", "Motion score: $motionScore")
-
-            if (motionScore > 1000) { // Adjust threshold
-                Log.d("MotionDetection", "Motion detected!")
-                onClassification("Motion Detected!")
-            }
+        if (frameCounter % FRAME_INTERVAL != 0 || !isMotionDetected(imageProxy)) {
+            imageProxy.close()
+            return // Skip this frame if no motion is detected or it's not the target interval
         }
 
-        val inputBuffer = preprocessImage(bitmap)
+        val currentBitmap = imageProxy.toBitmap()?.rotate(imageProxy.imageInfo.rotationDegrees.toFloat())
+        if (currentBitmap == null) return
+
+        val inputBuffer = preprocessImage(currentBitmap)
         val outputBuffer = Array(1) { FloatArray(NUM_CLASSES) }
 
         interpreter?.run(inputBuffer, outputBuffer)
 
-        // Log raw output probabilities for debugging
-        Log.d("ProcessFrame", "Raw model output: ${outputBuffer[0].contentToString()}")
-
         val predictedLabel = getLabel(outputBuffer[0])
-        Log.d("ProcessFrame", "Predicted label: $predictedLabel")
         onClassification(predictedLabel)
 
     } catch (e: Exception) {
-        Log.e("CameraScreen", "Error processing frame: ${e.localizedMessage}")
+        Log.e("ProcessFrame", "Error processing frame: ${e.localizedMessage}")
     } finally {
         imageProxy.close()
     }
 }
-// Motion detection using pixel difference
+
+
 private fun detectMotion(prev: Bitmap, curr: Bitmap): Int {
+    val resizedPrev = Bitmap.createScaledBitmap(prev, 64, 64, true)
+    val resizedCurr = Bitmap.createScaledBitmap(curr, 64, 64, true)
+
     var diffCount = 0
-    for (x in 0 until curr.width step 10) {
-        for (y in 0 until curr.height step 10) {
-            if (curr.getPixel(x, y) != prev.getPixel(x, y)) {
+    for (x in 0 until resizedCurr.width step 5) { // Step size reduces computation
+        for (y in 0 until resizedCurr.height step 5) {
+            if (resizedCurr.getPixel(x, y) != resizedPrev.getPixel(x, y)) {
                 diffCount++
             }
         }
     }
+
     return diffCount
 }
+
+
 
 private fun Bitmap.rotate(degrees: Float): Bitmap {
     val matrix = Matrix().apply { postRotate(degrees) }
@@ -361,9 +422,9 @@ private fun Bitmap.rotate(degrees: Float): Bitmap {
 }
 
 private fun ImageProxy.toBitmap(): Bitmap? {
-    val yBuffer = planes[0].buffer
-    val uBuffer = planes[1].buffer
-    val vBuffer = planes[2].buffer
+    val yBuffer = planes[0].buffer // Y plane
+    val uBuffer = planes[1].buffer // U plane
+    val vBuffer = planes[2].buffer // V plane
 
     val ySize = yBuffer.remaining()
     val uSize = uBuffer.remaining()
@@ -384,8 +445,9 @@ private fun ImageProxy.toBitmap(): Bitmap? {
     }
 }
 
+
 private fun preprocessImage(bitmap: Bitmap): ByteBuffer {
-    val inputSize = 224 // Adjust this to match your model's input size.
+    val inputSize = 224 // Match your model's expected input size
     val scaledBitmap = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
     val byteBuffer = ByteBuffer.allocateDirect(4 * inputSize * inputSize * 3).apply { order(ByteOrder.nativeOrder()) }
 
@@ -396,13 +458,14 @@ private fun preprocessImage(bitmap: Bitmap): ByteBuffer {
     for (i in 0 until inputSize) {
         for (j in 0 until inputSize) {
             val value = intValues[pixelIndex++]
-            byteBuffer.putFloat(((value shr 16 and 0xFF) - 127.5f) / 127.5f) // Normalize Red channel
-            byteBuffer.putFloat(((value shr 8 and 0xFF) - 127.5f) / 127.5f)  // Normalize Green channel
-            byteBuffer.putFloat(((value and 0xFF) - 127.5f) / 127.5f)        // Normalize Blue channel
+            byteBuffer.putFloat((value shr 16 and 0xFF) / 255.0f) // Normalize Red channel
+            byteBuffer.putFloat((value shr 8 and 0xFF) / 255.0f)  // Normalize Green channel
+            byteBuffer.putFloat((value and 0xFF) / 255.0f)        // Normalize Blue channel
         }
     }
     return byteBuffer
 }
+
 
 
 private fun loadModelFile(context: Context, modelName: String): ByteBuffer {
