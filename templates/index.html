@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Sign Language Translator</title>
+
+    <!-- Bootstrap for Better UI -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #2a2a72, #009ffd);
+            color: white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+        }
+
+        h1 {
+            margin-top: 20px;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 30px;
+        }
+
+        .video-feed {
+            width: 600px;
+            height: 400px;
+            border-radius: 10px;
+            border: 4px solid white;
+            box-shadow: 0px 0px 10px rgba(255, 255, 255, 0.5);
+        }
+
+        .textbox {
+            width: 80%;
+            max-width: 600px;
+            height: 50px;
+            margin-top: 20px;
+            font-size: 1.5rem;
+            text-align: center;
+            border: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-radius: 8px;
+            padding: 10px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        .textbox::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .textbox:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .reset-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 5px;
+            background-color: #ff4d4d;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .reset-btn:hover {
+            background-color: #ff1a1a;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Real-Time Sign Language Translator</h1>
+
+    <div class="container">
+        <img id="video" class="video-feed" src="http://127.0.0.1:5000/video_feed_with_prediction" alt="Video Feed">
+        <input type="text" id="detectedText" class="textbox" placeholder="Start Signing..." readonly>
+        <button class="reset-btn" onclick="resetText()">Reset</button>
+    </div>
+
+    <script>
+        let socket = new WebSocket("ws://127.0.0.1:5000/ws");
+        let detectedText = document.getElementById("detectedText");
+
+        socket.onmessage = function(event) {
+            let detectedLetter = event.data.trim();
+            if (detectedLetter !== "No Prediction") {
+                detectedText.value += detectedLetter + " ";
+            }
+        };
+
+        function resetText() {
+            detectedText.value = "";
+        }
+    </script>
+
+</body>
+</html>

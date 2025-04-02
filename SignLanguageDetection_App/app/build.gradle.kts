@@ -64,22 +64,22 @@ dependencies {
     implementation(libs.tensorflow.lite.gpu)
 
     // CameraX Dependencies for Camera Functionality
-    implementation("androidx.camera:camera-core:1.5.0-alpha06")
-    implementation("androidx.camera:camera-camera2:1.5.0-alpha06")
-    implementation("androidx.camera:camera-lifecycle:1.5.0-alpha06")
-    implementation("androidx.camera:camera-view:1.5.0-alpha06")
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
 
     // ML Kit Text Recognition for Real-Time Translation
     implementation(libs.text.recognition)
     implementation(libs.tensorflow.lite.task.text)
     implementation(libs.tensorflow.tensorflow.lite.support)
-    implementation("org.tensorflow:tensorflow-lite-task-vision:0.4.2")
+    implementation(libs.tensorflow.lite.task.vision)
 
     //For permissions
-    implementation("com.google.accompanist:accompanist-permissions:0.30.1")
+    implementation(libs.accompanist.permissions)
 
     // TensorFlow Lite Core Library
-    implementation ("org.tensorflow:tensorflow-lite:2.13.0")
+    implementation (libs.tensorflow.lite)
 
 
     // Testing Libraries
@@ -99,5 +99,24 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose) // ViewModel integration with Compose
     implementation(libs.androidx.navigation.compose) // Navigation for Compose
 
+
+}
+dependencies {
+    implementation (libs.retrofit)
+    implementation (libs.converter.gson)
+    implementation (libs.coil.compose)
+    implementation(libs.okhttp)
+    implementation (libs.androidx.core.ktx.v1120)
+    implementation (libs.okhttp.v4110)
+    implementation (libs.androidx.lifecycle.runtime.ktx.v261)
+    implementation (libs.kotlinx.coroutines.android)
+    implementation (libs.json)
+
+}
+dependencies {
+    // MediaPipe Tasks Vision Library (for image/text/object detection)
+    implementation(libs.tasks.vision)
+    implementation (libs.accompanist.webview)
+    implementation(libs.androidx.heifwriter)
 
 }
