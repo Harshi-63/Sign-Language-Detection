@@ -12,9 +12,12 @@ android {
     defaultConfig {
         applicationId = "com.example.signlanguagedetection_app"
         minSdk = 29
-        targetSdk = 35
+        targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        renderscriptTargetApi = 18
+        renderscriptSupportModeEnabled = true
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
